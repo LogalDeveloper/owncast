@@ -1,12 +1,56 @@
 package stream
 
 import (
+	"context"
 	"io"
 	"testing"
 	"time"
 
+	"github.com/owncast/owncast/config"
 	"github.com/owncast/owncast/models"
 )
+
+type fakeExternalEngine struct {
+	stopped bool
+}
+
+func (*fakeExternalEngine) Start() error { return nil }
+func (engine *fakeExternalEngine) Stop() error {
+	engine.stopped = true
+	return nil
+}
+
+func (*fakeExternalEngine) PlaybackURL() string {
+	return "https://example.com/video.m3u8?protocol=llhls"
+}
+func (*fakeExternalEngine) ViewerCount() int     { return 42 }
+func (*fakeExternalEngine) ThumbnailURL() string { return "https://example.com/thumbnail.jpg" }
+
+func TestExplicitEngineInjection(t *testing.T) {
+	engine := &fakeExternalEngine{}
+	var events StreamEvents
+	s := New(Deps{EngineFactory: func(callbacks StreamEvents) StreamEngine {
+		events = callbacks
+		return engine
+	}})
+	if events != s || s.engine != engine || !s.HasExternalPlayback() {
+		t.Fatal("engine factory did not receive and wire the stream service")
+	}
+	if s.fileWriter != nil || s.rtmp != nil {
+		t.Fatal("external engine constructed local media plumbing")
+	}
+	if s.PlaybackURL() != engine.PlaybackURL() || s.ThumbnailURL() != engine.ThumbnailURL() {
+		t.Fatal("external playback accessors were not forwarded")
+	}
+	s.Stop(context.Background())
+	if !engine.stopped {
+		t.Fatal("stream shutdown did not stop the external engine")
+	}
+	local := New(Deps{Config: config.NewDefault()})
+	if _, ok := local.engine.(*localStreamEngine); !ok || local.HasExternalPlayback() || local.fileWriter == nil {
+		t.Fatal("omitting the engine factory did not preserve the upstream local engine")
+	}
+}
 
 // fakeRTMP is a stand-in for *rtmp.Service that records how the local engine
 // drives it, without binding a real socket.

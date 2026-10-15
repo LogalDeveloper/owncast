@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/jellydator/ttlcache/v3"
 
@@ -89,7 +90,12 @@ type Handlers struct {
 	// previewThumbCache caches thumbnail/preview bytes for a short window
 	// so frequent polling from chat clients doesn't re-read the file
 	// every request.
-	previewThumbCache *ttlcache.Cache[string, []byte]
+	previewThumbCache   *ttlcache.Cache[string, []byte]
+	previewThumbMu      sync.Mutex
+	thumbnailRefreshMu  sync.Mutex
+	thumbnailClient     *http.Client
+	lastThumbnailSource string
+	lastThumbnailBytes  []byte
 
 	// hasWarnedSVGLogo gates the one-time warning logged when an
 	// external site requests an SVG logo via /logo/external.
@@ -100,6 +106,7 @@ type Handlers struct {
 // Deps lists every service a *Handlers consumes. New deps appear here as
 // more handlers migrate.
 type Deps struct {
+	ThumbnailClient         *http.Client
 	Cache                   *cache.Container
 	Stream                  *stream.Service
 	Chat                    *chat.Service
@@ -150,7 +157,14 @@ func (h *Handlers) HandleWebsocketConnection(w http.ResponseWriter, r *http.Requ
 
 // NewHandlers constructs the dependency-bearing handler set.
 func NewHandlers(deps Deps) *Handlers {
+	var thumbnailClient *http.Client
+	if deps.ThumbnailClient != nil {
+		client := *deps.ThumbnailClient
+		client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		thumbnailClient = &client
+	}
 	return &Handlers{
+		thumbnailClient:         thumbnailClient,
 		cache:                   deps.Cache,
 		stream:                  deps.Stream,
 		chat:                    deps.Chat,
@@ -175,7 +189,7 @@ func NewHandlers(deps Deps) *Handlers {
 		pluginPageContent:       deps.PluginPageContent,
 		pluginTabs:              deps.PluginTabs,
 		previewThumbCache: ttlcache.New(
-			ttlcache.WithTTL[string, []byte](15),
+			ttlcache.WithTTL[string, []byte](15*time.Second),
 			ttlcache.WithCapacity[string, []byte](1),
 			ttlcache.WithDisableTouchOnHit[string, []byte](),
 		),

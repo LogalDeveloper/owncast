@@ -31,6 +31,11 @@ func (h *Handlers) HandleHLSRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.stream.HasExternalPlayback() {
+		h.handleExternalHLS(w, r)
+		return
+	}
+
 	// If using external storage then only allow requests for the
 	// master playlist at stream.m3u8, no variants or segments.
 	if h.configRepository.GetS3Config().Enabled && relativePath != "stream.m3u8" {
@@ -93,4 +98,14 @@ func (h *Handlers) HandleHLSRequest(w http.ResponseWriter, r *http.Request) {
 	if observe {
 		h.registerServedSegmentMetrics(r, observation.ClientID, requestClientID, cw.bytes, time.Since(start), observation.SpeedKnown)
 	}
+}
+
+func (h *Handlers) handleExternalHLS(w http.ResponseWriter, r *http.Request) {
+	middleware.DisableCache(w)
+	middleware.EnableCors(w)
+	if r.URL.Path != "/hls/stream.m3u8" || (r.Method != http.MethodGet && r.Method != http.MethodHead) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	http.Redirect(w, r, h.stream.PlaybackURL(), http.StatusFound)
 }

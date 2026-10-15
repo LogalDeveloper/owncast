@@ -125,6 +125,7 @@ type Service struct {
 // Deps is the explicit-dependency contract the service requires at
 // construction time.
 type Deps struct {
+	EngineFactory    func(StreamEvents) StreamEngine
 	Rtmp             *rtmp.Service
 	Activitypub      *activitypub.Service
 	Webhooks         *webhooks.Service
@@ -140,7 +141,6 @@ type Deps struct {
 func New(deps Deps) *Service {
 	s := &Service{
 		geoIPClient:      geoip.NewClient(),
-		fileWriter:       transcoder.NewFileWriterReceiverService(deps.Config),
 		rtmp:             deps.Rtmp,
 		activitypub:      deps.Activitypub,
 		webhooks:         deps.Webhooks,
@@ -150,12 +150,41 @@ func New(deps Deps) *Service {
 		configRepository: deps.ConfigRepository,
 		cfg:              deps.Config,
 	}
-	// The local engine binds the in-process RTMP listener and routes inbound
-	// connections back through the service's StreamEvents handlers.
-	s.engine = &localStreamEngine{
-		rtmp:          deps.Rtmp,
-		onConnect:     s.setStreamAsConnected,
-		onBroadcaster: s.BroadcasterSet,
+	if deps.EngineFactory != nil {
+		s.engine = deps.EngineFactory(s)
+	} else {
+		// The local engine binds the in-process RTMP listener and routes inbound
+		// connections back through the service's StreamEvents handlers.
+		s.engine = &localStreamEngine{
+			rtmp:          deps.Rtmp,
+			onConnect:     s.setStreamAsConnected,
+			onBroadcaster: s.BroadcasterSet,
+		}
+	}
+	if !s.HasExternalPlayback() {
+		s.fileWriter = transcoder.NewFileWriterReceiverService(deps.Config)
 	}
 	return s
+}
+
+// HasExternalPlayback reports whether the wired engine serves media itself.
+func (s *Service) HasExternalPlayback() bool {
+	_, ok := s.engine.(ExternalPlayback)
+	return ok
+}
+
+// PlaybackURL forwards to the external engine, or "" for the local engine.
+func (s *Service) PlaybackURL() string {
+	if engine, ok := s.engine.(ExternalPlayback); ok {
+		return engine.PlaybackURL()
+	}
+	return ""
+}
+
+// ThumbnailURL forwards to the external engine, or "" for the local engine.
+func (s *Service) ThumbnailURL() string {
+	if engine, ok := s.engine.(ExternalPlayback); ok {
+		return engine.ThumbnailURL()
+	}
+	return ""
 }

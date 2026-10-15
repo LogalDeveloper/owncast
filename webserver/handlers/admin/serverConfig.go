@@ -15,7 +15,12 @@ import (
 // GetServerConfig gets the config details of the server.
 func (a *Admin) GetServerConfig(w http.ResponseWriter, r *http.Request) {
 	configRepository := a.configRepository
-	ffmpeg := utils.ValidatedFfmpegPath(configRepository.GetFfMpegPath())
+	ffmpeg := ""
+	supportedCodecs := []string{}
+	if a.stream == nil || !a.stream.HasExternalPlayback() {
+		ffmpeg = utils.ValidatedFfmpegPath(configRepository.GetFfMpegPath())
+		supportedCodecs = transcoder.GetCodecs(ffmpeg)
+	}
 	usernameBlocklist := configRepository.GetForbiddenUsernameList()
 	usernameSuggestions := configRepository.GetSuggestedUsernamesList()
 
@@ -80,7 +85,7 @@ func (a *Admin) GetServerConfig(w http.ResponseWriter, r *http.Request) {
 		S3:                 configRepository.GetS3Config(),
 		ExternalActions:    configRepository.GetExternalActions(),
 		StyleContributors:  a.styleContributorsOrEmpty(),
-		SupportedCodecs:    transcoder.GetCodecs(ffmpeg),
+		SupportedCodecs:    supportedCodecs,
 		VideoCodec:         configRepository.GetVideoCodec(),
 		ForbiddenUsernames: usernameBlocklist,
 		SuggestedUsernames: usernameSuggestions,

@@ -21,7 +21,9 @@ import (
 // webhooks, and the directory/notification subsystems. Must be called
 // exactly once after New().
 func (s *Service) Start(_ context.Context) error {
-	s.resetDirectories()
+	if !s.HasExternalPlayback() {
+		s.resetDirectories()
+	}
 
 	if err := s.configRepository.VerifySettings(s.cfg.TemporaryStreamKey); err != nil {
 		log.Error(err)
@@ -33,20 +35,16 @@ func (s *Service) Start(_ context.Context) error {
 		return err
 	}
 
-	// The HLS handler takes the written HLS playlists and segments and
-	// makes storage decisions. Rather simple right now but will play more
-	// useful when recordings come into play.
-	s.handler = transcoder.HLSHandler{}
-
-	if err := s.setupStorage(); err != nil {
-		log.Errorln("storage error", err)
-	}
-
-	s.fileWriter.SetupFileWriterReceiverService(&s.handler)
-
-	if err := s.createInitialOfflineState(); err != nil {
-		log.Error("failed to create the initial offline state")
-		return err
+	if !s.HasExternalPlayback() {
+		s.handler = transcoder.HLSHandler{}
+		if err := s.setupStorage(); err != nil {
+			log.Errorln("storage error", err)
+		}
+		s.fileWriter.SetupFileWriterReceiverService(&s.handler)
+		if err := s.createInitialOfflineState(); err != nil {
+			log.Error("failed to create the initial offline state")
+			return err
+		}
 	}
 
 	if err := s.chat.Start(); err != nil {
@@ -60,9 +58,11 @@ func (s *Service) Start(_ context.Context) error {
 		return err
 	}
 
-	rtmpPort := s.configRepository.GetRTMPPortNumber()
-	if rtmpPort != 1935 {
-		log.Infof("RTMP is accepting inbound streams on port %d.", rtmpPort)
+	if !s.HasExternalPlayback() {
+		rtmpPort := s.configRepository.GetRTMPPortNumber()
+		if rtmpPort != 1935 {
+			log.Infof("RTMP is accepting inbound streams on port %d.", rtmpPort)
+		}
 	}
 
 	s.webhooks.Start()
@@ -78,6 +78,13 @@ func (s *Service) Start(_ context.Context) error {
 // onlineTimerCancelFunc, stops tickers, and closes the transcoder
 // cleanly.
 func (s *Service) Stop(_ context.Context) {
+	// Only external engines are stopped; stopping the local one would disconnect the broadcaster.
+	if !s.HasExternalPlayback() {
+		return
+	}
+	if err := s.engine.Stop(); err != nil {
+		log.WithError(err).Warn("failed to stop stream engine")
+	}
 }
 
 func (s *Service) createInitialOfflineState() error {
@@ -162,7 +169,9 @@ func (s *Service) setStreamAsConnected(rtmpOut *io.PipeReader) {
 // go-live side effects. Implements StreamEvents; the local engine calls it
 // in-process, a remote engine over its signaling channel.
 func (s *Service) StreamConnected(broadcast *models.CurrentBroadcast) {
+	s.statsMu.Lock()
 	s.currentBroadcast = broadcast
+	s.statsMu.Unlock()
 	s.applyStreamOnline()
 }
 
@@ -173,20 +182,23 @@ func (s *Service) StreamConnected(broadcast *models.CurrentBroadcast) {
 // these reactions through StreamConnected.
 func (s *Service) applyStreamOnline() {
 	now := utils.NullTime{Time: time.Now(), Valid: true}
+	s.statsMu.Lock()
 	s.stats.StreamConnected = true
 	s.stats.LastDisconnectTime = nil
 	s.stats.LastConnectTime = &now
 	s.stats.SessionMaxViewerCount = 0
+	s.statsMu.Unlock()
 
-	s.StopOfflineCleanupTimer()
-	s.startOnlineCleanupTimer()
+	if !s.HasExternalPlayback() {
+		s.StopOfflineCleanupTimer()
+		s.startOnlineCleanupTimer()
+		if err := s.setupStorage(); err != nil {
+			log.Fatalln("failed to setup the storage", err)
+		}
+	}
 
 	if s.yp != nil {
 		go s.yp.Start()
-	}
-
-	if err := s.setupStorage(); err != nil {
-		log.Fatalln("failed to setup the storage", err)
 	}
 
 	go s.webhooks.SendStreamStatusEvent(models.StreamStarted)
@@ -214,7 +226,9 @@ func (s *Service) applyStreamOnline() {
 // the transcoder exits, a remote engine when its stream goes offline.
 func (s *Service) StreamDisconnected(_ error) {
 	s.applyStreamOffline()
+	s.statsMu.Lock()
 	s.currentBroadcast = nil
+	s.statsMu.Unlock()
 }
 
 // applyStreamOffline handles the always-on cleanup when a live stream ends.
@@ -226,10 +240,12 @@ func (s *Service) applyStreamOffline() {
 		s.onlineTimerCancelFunc()
 	}
 
+	s.statsMu.Lock()
 	s.stats.StreamConnected = false
 	s.stats.LastDisconnectTime = &now
 	s.stats.LastConnectTime = nil
 	s.broadcaster = nil
+	s.statsMu.Unlock()
 
 	// Stop the federated stream-ping ticker so we don't keep advertising
 	// that we are live after the stream has ended, then tell followers we've
@@ -241,6 +257,15 @@ func (s *Service) applyStreamOffline() {
 		if err := s.activitypub.SendStreamGoingOffline(); err != nil {
 			log.Errorf("unable to send stream-offline Leave activity: %v", err)
 		}
+	}
+
+	if s.HasExternalPlayback() {
+		if s.yp != nil {
+			s.yp.Stop()
+		}
+		s.saveStats()
+		go s.webhooks.SendStreamStatusEvent(models.StreamStopped)
+		return
 	}
 
 	offlineFilename := "offline-v2.ts"
@@ -263,14 +288,17 @@ func (s *Service) applyStreamOffline() {
 	// If there is no current broadcast available the previous stream
 	// likely failed for some reason. Don't try to append to it. Just
 	// transition to offline.
-	if s.currentBroadcast == nil {
+	s.statsMu.RLock()
+	currentBroadcast := s.currentBroadcast
+	s.statsMu.RUnlock()
+	if currentBroadcast == nil {
 		s.stopOnlineCleanupTimer()
 		s.transitionToOfflineVideoStreamContent()
 		log.Errorln("unexpected nil currentBroadcast")
 		return
 	}
 
-	for index := range s.currentBroadcast.OutputSettings {
+	for index := range currentBroadcast.OutputSettings {
 		s.makeVariantIndexOffline(index, offlineFilePath, offlineFilename)
 	}
 
@@ -321,11 +349,13 @@ func (s *Service) stopOnlineCleanupTimer() {
 func (s *Service) startLiveStreamNotificationsTimer() context.CancelFunc {
 	// Send delayed notification messages.
 	c, cancelFunc := context.WithCancel(context.Background())
-	s.onlineTimerCancelFunc = cancelFunc
 	go func(c context.Context) {
 		select {
 		case <-time.After(time.Minute * 2.0):
-			if s.lastNotified != nil && time.Since(*s.lastNotified) < 10*time.Minute {
+			s.statsMu.RLock()
+			recentlyNotified := s.lastNotified != nil && time.Since(*s.lastNotified) < 10*time.Minute
+			s.statsMu.RUnlock()
+			if recentlyNotified {
 				return
 			}
 
@@ -345,7 +375,9 @@ func (s *Service) startLiveStreamNotificationsTimer() context.CancelFunc {
 			}
 
 			now := time.Now()
+			s.statsMu.Lock()
 			s.lastNotified = &now
+			s.statsMu.Unlock()
 		case <-c.Done():
 		}
 	}(c)

@@ -1,6 +1,22 @@
 package metrics
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/owncast/owncast/services/stream"
+)
+
+func TestRemoteHealthWithNilEncoderMetadata(t *testing.T) {
+	s := newTestService()
+	s.stream = &stream.Service{}
+	s.metrics.CPUUtilizations = []TimestampedValue{{Value: 100}, {Value: 100}}
+	if s.wastefulBitrateOverviewMessage() != "" {
+		t.Fatal("nil remote encoder metadata produced a local bitrate warning")
+	}
+	if s.stream.GetCurrentBroadcast() != nil || s.stream.GetBroadcaster() != nil {
+		t.Fatal("remote health read fabricated local encoder metadata")
+	}
+}
 
 func newTestService() *Service {
 	s := New(Deps{})

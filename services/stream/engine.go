@@ -14,8 +14,21 @@ import (
 type StreamEngine interface {
 	// Start begins accepting an inbound broadcast.
 	Start() error
-	// Stop force-disconnects any inbound broadcast and tears the engine down.
+	// Stop releases the engine; remote polling does not stop the encoder.
 	Stop() error
+}
+
+// ExternalPlayback is implemented by engines whose media is served by a
+// third-party provider rather than the local HLS pipeline. The stream
+// service skips local storage, transcoding, and thumbnail generation when its
+// engine satisfies this interface.
+type ExternalPlayback interface {
+	// PlaybackURL is where /hls/stream.m3u8 redirects viewers.
+	PlaybackURL() string
+	// ViewerCount is the provider's authoritative concurrent viewer count.
+	ViewerCount() int
+	// ThumbnailURL is the provider image to proxy, or "" when none applies.
+	ThumbnailURL() string
 }
 
 // StreamEvents are the always-on, core-side reactions an engine drives as a
@@ -32,6 +45,9 @@ type StreamEvents interface {
 	// StreamDisconnected reports the broadcast ending. err is the transcode
 	// exit cause if any, nil for a clean end.
 	StreamDisconnected(err error)
+	// ViewerCountUpdated reports a provider-side viewer count sample so the
+	// session and overall peaks track it. Only external engines call this.
+	ViewerCountUpdated(count int)
 }
 
 // Compile-time guarantees for the local wiring.

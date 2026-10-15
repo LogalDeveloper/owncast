@@ -38,7 +38,7 @@ func (a *Admin) GetVideoPlaybackMetrics(w http.ResponseWriter, r *http.Request) 
 		for _, variants := range broadcast.OutputSettings {
 			availableBitrates = append(availableBitrates, variants.VideoBitrate)
 		}
-	} else {
+	} else if !a.stream.HasExternalPlayback() {
 		segmentLength = a.configRepository.GetStreamLatencyLevel().SecondsPerSegment
 		for _, variants := range a.configRepository.GetStreamOutputVariants() {
 			availableBitrates = append(availableBitrates, variants.VideoBitrate)

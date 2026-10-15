@@ -9,6 +9,19 @@ import (
 	"github.com/owncast/owncast/models"
 )
 
+// ViewerCountUpdated records a provider viewer-count sample into the session
+// and overall peaks. Implements StreamEvents; ignored for the local engine,
+// whose peaks come from SetViewerActive.
+func (s *Service) ViewerCountUpdated(count int) {
+	s.statsMu.Lock()
+	defer s.statsMu.Unlock()
+	if !s.HasExternalPlayback() || s.stats == nil || !s.stats.StreamConnected || count < 0 {
+		return
+	}
+	s.stats.SessionMaxViewerCount = max(count, s.stats.SessionMaxViewerCount)
+	s.stats.OverallMaxViewerCount = max(count, s.stats.OverallMaxViewerCount)
+}
+
 // setupStats restores stats from the previous session and starts the
 // periodic save + viewer-prune goroutines.
 func (s *Service) setupStats() error {
@@ -36,7 +49,19 @@ func (s *Service) setupStats() error {
 // live HLS content. Returns false during the brief warm-up after an
 // RTMP connection where HLS segments aren't ready yet.
 func (s *Service) IsStreamConnected() bool {
+	s.statsMu.RLock()
+	defer s.statsMu.RUnlock()
+	return s.isStreamConnectedLocked()
+}
+
+func (s *Service) isStreamConnectedLocked() bool {
 	if s.stats == nil || !s.stats.StreamConnected {
+		return false
+	}
+	if s.HasExternalPlayback() {
+		return true
+	}
+	if s.stats.LastConnectTime == nil {
 		return false
 	}
 
@@ -66,12 +91,11 @@ func (s *Service) RemoveChatClient(clientID string) {
 // SetViewerActive marks a viewer as currently watching and updates the
 // session/overall peak counters. Silent no-op while no stream is live.
 func (s *Service) SetViewerActive(viewer *models.Viewer) {
+	s.statsMu.Lock()
+	defer s.statsMu.Unlock()
 	if s.stats == nil || !s.stats.StreamConnected {
 		return
 	}
-
-	s.statsMu.Lock()
-	defer s.statsMu.Unlock()
 
 	// Asynchronously, optionally, fetch GeoIP info. The lookup can be slow,
 	// so it lands on the stored viewer later, under the same lock every
@@ -89,22 +113,24 @@ func (s *Service) SetViewerActive(viewer *models.Viewer) {
 	if _, exists := s.stats.Viewers[viewer.ClientID]; exists {
 		s.stats.Viewers[viewer.ClientID].LastSeen = time.Now()
 	} else {
-		s.stats.Viewers[viewer.ClientID] = viewer
+		copyViewer := *viewer
+		s.stats.Viewers[viewer.ClientID] = &copyViewer
 	}
-	s.stats.SessionMaxViewerCount = int(math.Max(float64(len(s.stats.Viewers)), float64(s.stats.SessionMaxViewerCount)))
-	s.stats.OverallMaxViewerCount = int(math.Max(float64(s.stats.SessionMaxViewerCount), float64(s.stats.OverallMaxViewerCount)))
+	if !s.HasExternalPlayback() {
+		s.stats.SessionMaxViewerCount = max(len(s.stats.Viewers), s.stats.SessionMaxViewerCount)
+		s.stats.OverallMaxViewerCount = max(s.stats.SessionMaxViewerCount, s.stats.OverallMaxViewerCount)
+	}
 }
 
 // GetActiveViewers returns a snapshot of the currently-tracked viewers.
 // The viewers are copied because the live map and the viewers in it are
 // mutated by request handlers and the prune goroutine while callers read.
 func (s *Service) GetActiveViewers() map[string]models.Viewer {
+	s.statsMu.RLock()
+	defer s.statsMu.RUnlock()
 	if s.stats == nil {
 		return nil
 	}
-
-	s.statsMu.Lock()
-	defer s.statsMu.Unlock()
 
 	viewers := make(map[string]models.Viewer, len(s.stats.Viewers))
 	for id, viewer := range s.stats.Viewers {
@@ -129,24 +155,27 @@ func (s *Service) pruneViewerCount() {
 }
 
 func (s *Service) saveStats() {
-	if err := s.configRepository.SetPeakOverallViewerCount(s.stats.OverallMaxViewerCount); err != nil {
+	s.statsMu.RLock()
+	stats := *s.stats
+	s.statsMu.RUnlock()
+	if err := s.configRepository.SetPeakOverallViewerCount(stats.OverallMaxViewerCount); err != nil {
 		log.Errorln("error saving viewer count", err)
 	}
-	if err := s.configRepository.SetPeakSessionViewerCount(s.stats.SessionMaxViewerCount); err != nil {
+	if err := s.configRepository.SetPeakSessionViewerCount(stats.SessionMaxViewerCount); err != nil {
 		log.Errorln("error saving viewer count", err)
 	}
 	// Persist a recent live heartbeat while the stream is online so an unclean
 	// shutdown (SIGKILL, node reboot, container eviction) still leaves a useful
 	// "last live" timestamp on the next startup. A graceful disconnect below will
 	// overwrite this with the real end time.
-	if s.stats.StreamConnected && s.stats.LastConnectTime != nil && s.stats.LastConnectTime.Valid {
+	if stats.StreamConnected && stats.LastConnectTime != nil && stats.LastConnectTime.Valid {
 		if err := s.configRepository.SetLastDisconnectTime(time.Now()); err != nil {
 			log.Errorln("error saving live heartbeat time", err)
 		}
 		return
 	}
-	if s.stats.LastDisconnectTime != nil && s.stats.LastDisconnectTime.Valid {
-		if err := s.configRepository.SetLastDisconnectTime(s.stats.LastDisconnectTime.Time); err != nil {
+	if stats.LastDisconnectTime != nil && stats.LastDisconnectTime.Valid {
+		if err := s.configRepository.SetLastDisconnectTime(stats.LastDisconnectTime.Time); err != nil {
 			log.Errorln("error saving disconnect time", err)
 		}
 	}

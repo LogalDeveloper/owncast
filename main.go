@@ -32,6 +32,7 @@ import (
 	apresolvers "github.com/owncast/owncast/services/activitypub/resolvers"
 	"github.com/owncast/owncast/services/cache"
 	"github.com/owncast/owncast/services/chat"
+	"github.com/owncast/owncast/services/cloudflarestream"
 	"github.com/owncast/owncast/services/datastore"
 	"github.com/owncast/owncast/services/dispatcher"
 	"github.com/owncast/owncast/services/rtmp"
@@ -184,6 +185,8 @@ func main() {
 
 	handleCommandLineFlags(cfg, configRepository)
 
+	thumbnailClient := &http.Client{Timeout: 10 * time.Second}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -267,6 +270,7 @@ func main() {
 	apSvc.Start()
 
 	streamSvc := stream.New(stream.Deps{
+		EngineFactory:    streamEngineFactory(),
 		Rtmp:             rtmpSvc,
 		Activitypub:      apSvc,
 		Webhooks:         webhooksSvc,
@@ -403,6 +407,7 @@ func main() {
 	})
 
 	h := handlers.NewHandlers(handlers.Deps{
+		ThumbnailClient:         thumbnailClient,
 		Cache:                   cacheContainer,
 		Stream:                  streamSvc,
 		Chat:                    chatSvc,
@@ -429,8 +434,33 @@ func main() {
 	})
 
 	// Stage 10: serve. Blocks until shutdown.
+	go h.RunThumbnailRefresh(ctx)
 	if err := router.Start(cfg, *enableVerboseLogging, h, mw, apSvc.Controllers(), pluginContentHandler, pluginAdminHandler, viewerAuthGate); err != nil {
 		log.Fatalln("failed to start/run the router", err)
+	}
+}
+
+// streamEngineFactory selects the Cloudflare Stream engine when both
+// CLOUDFLARE_STREAM_* variables are set. It returns nil when neither is set
+// so stream.New falls back to the upstream local RTMP engine. Setting only
+// one is treated as a misconfiguration.
+func streamEngineFactory() func(stream.StreamEvents) stream.StreamEngine {
+	inputID := os.Getenv("CLOUDFLARE_STREAM_LIVE_INPUT_ID")
+	customerCode := os.Getenv("CLOUDFLARE_STREAM_CUSTOMER_CODE")
+	if inputID == "" && customerCode == "" {
+		return nil
+	}
+	if inputID == "" || customerCode == "" {
+		log.Fatalln("Cloudflare Stream requires both CLOUDFLARE_STREAM_LIVE_INPUT_ID and CLOUDFLARE_STREAM_CUSTOMER_CODE to be set")
+	}
+	cloudflareConfig, err := cloudflarestream.NewConfig(inputID, customerCode)
+	if err != nil {
+		log.Fatalln("invalid Cloudflare Stream configuration:", err)
+	}
+	log.Infoln("Cloudflare Stream mode enabled; local RTMP ingest and transcoding are disabled.")
+	providerClient := &http.Client{Timeout: 4 * time.Second}
+	return func(events stream.StreamEvents) stream.StreamEngine {
+		return cloudflarestream.New(cloudflarestream.Deps{Config: cloudflareConfig, Client: providerClient, Events: events})
 	}
 }
 

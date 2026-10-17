@@ -28,6 +28,28 @@ export const Localization = {
     connected: 'Connected',
     unmute: 'Frontend.unmute',
 
+    Player: {
+      play: 'Frontend.Player.play',
+      pause: 'Frontend.Player.pause',
+      mute: 'Frontend.Player.mute',
+      volume: 'Frontend.Player.volume',
+      fullscreen: 'Frontend.Player.fullscreen',
+      exitFullscreen: 'Frontend.Player.exitFullscreen',
+      pictureInPicture: 'Frontend.Player.pictureInPicture',
+      airplay: 'Frontend.Player.airplay',
+      quality: 'Frontend.Player.quality',
+      settings: 'Frontend.Player.settings',
+      catchUp: 'Frontend.Player.catchUp',
+      auto: 'Frontend.Player.auto',
+      lowLatency: 'Frontend.Player.lowLatency',
+      live: 'Frontend.Player.live',
+      liveLowLatency: 'Frontend.Player.liveLowLatency',
+      behind: 'Frontend.Player.behind',
+      jumpToLive: 'Frontend.Player.jumpToLive',
+      playbackError: 'Frontend.Player.playbackError',
+      retry: 'Frontend.Player.retry',
+    },
+
     // Navigation and accessibility
     skipToPlayer: 'Skip to player',
     skipToContent: 'Skip to page content',

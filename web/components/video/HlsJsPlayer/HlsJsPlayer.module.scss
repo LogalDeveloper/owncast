@@ -1,0 +1,117 @@
+@use '../../../styles/mixins' as *;
+
+.container {
+  display: grid;
+  width: 100%;
+  justify-items: center;
+  height: var(--player-container-height);
+  aspect-ratio: 16 / 9;
+
+  @media (width <= 1200px) {
+    height: 100%;
+    max-height: var(--player-container-height);
+  }
+
+  @include screen(desktop) {
+    // prevent sidebar from overlapping stream
+    // padding-right: 320px;
+  }
+
+  // set height of player for tablet
+  @include screen(tablet) {
+    height: var(--player-container-height);
+    max-height: var(--player-container-height);
+  }
+
+  .player {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-column: 1;
+    grid-row: 1;
+  }
+}
+
+.player {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+
+  > video {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  &:fullscreen {
+    width: 100vw;
+    height: 100vh;
+  }
+}
+
+.poster {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  color: var(--theme-color-action);
+  background: transparent;
+  cursor: pointer;
+
+  svg {
+    width: 96px;
+    height: 96px;
+    max-width: 30vmin;
+    max-height: 30vmin;
+    filter: drop-shadow(0 2px 8px #000c);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-color-action);
+    outline-offset: -2px;
+  }
+}
+
+.loading,
+.error {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  color: var(--theme-color-components-text-on-dark);
+}
+
+.loading {
+  pointer-events: none;
+}
+
+.error {
+  flex-direction: column;
+  text-align: center;
+  background: #000c;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

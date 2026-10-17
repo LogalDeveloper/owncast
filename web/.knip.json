@@ -43,7 +43,6 @@
 		"babel-plugin-dynamic-import-node",
 		"@babel/preset-react",
 		"i18next-scanner",
-		"@types/video.js",
 		"@testing-library/jest-dom",
 		"@testing-library/react",
 		"jest-environment-jsdom",

@@ -15,9 +15,9 @@ import { FormStatusIndicator } from './FormStatusIndicator';
 
 import { AutoplaySetting } from '../../utils/autoplay';
 // The three viewer-facing autoplay behaviors. `value` is what's persisted and
-// what the player maps to a video.js autoplay option (off -> false,
-// always -> 'any', sound-only -> 'play'). The description is shown live under
-// the dropdown and updates as the selection changes.
+// how the player interprets autoplay (off, always, or sound-only). The
+// description is shown live under the dropdown and updates as the selection
+// changes.
 const AUTOPLAY_OPTIONS = [
   {
     value: AutoplaySetting.Off,

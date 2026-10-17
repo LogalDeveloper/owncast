@@ -32,10 +32,6 @@ const ProfileTwoTone = dynamic(() => import('@ant-design/icons/ProfileTwoTone'),
   ssr: false,
 });
 
-function generateStreamURL(serverURL, rtmpServerPort) {
-  return `rtmp://${serverURL.replace(/(^\w+:|^)\/\//, '')}:${rtmpServerPort}/live`;
-}
-
 export type OfflineProps = {
   logs: any[];
   config: ConfigDetails;
@@ -46,13 +42,8 @@ export const Offline: FC<OfflineProps> = ({ logs = [], config }) => {
 
   const { t } = useTranslation();
   const { serverConfig } = serverStatusData || {};
-  const { rtmpServerPort, streamKeyOverridden } = serverConfig;
-  const instanceUrl = global.window?.location.hostname || '';
-
-  let rtmpURL;
-  if (instanceUrl && rtmpServerPort) {
-    rtmpURL = generateStreamURL(instanceUrl, rtmpServerPort);
-  }
+  const { streamKeyOverridden } = serverConfig;
+  const rtmpURL = 'rtmps://live.cloudflare.com:443/live/';
 
   const data = [
     {

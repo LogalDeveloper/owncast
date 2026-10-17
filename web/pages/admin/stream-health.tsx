@@ -226,9 +226,8 @@ const StreamHealth = () => {
   const currentSpeed = bitrateChart[0]?.data[bitrateChart[0].data.length - 1]?.value;
   const currentDownloadSeconds =
     medianSegmentDownloadDurations[medianSegmentDownloadDurations.length - 1]?.value;
-  const lowestVariant = availableBitrates.reduce((bitrate1, bitrate2) =>
-    bitrate1.valueOf() < bitrate2.valueOf() ? bitrate1 : bitrate2,
-  );
+  // Cloudflare Stream manages its own bitrates, so Owncast has no available bitrates to compare.
+  const lowestVariant = availableBitrates.length > 0 ? Math.min(...availableBitrates) : null;
 
   const latencyMedian = medianLatency[medianLatency.length - 1]?.value || 0;
   const latencyMax = highestLatency[highestLatency.length - 1]?.value || 0;
@@ -247,7 +246,7 @@ const StreamHealth = () => {
   let bitrateError = null;
   let speedError = null;
 
-  if (currentSpeed !== 0 && currentSpeed < lowestVariant) {
+  if (lowestVariant !== null && currentSpeed !== 0 && currentSpeed < lowestVariant) {
     bitrateError = `One of your viewers is playing your stream at ${currentSpeed}kbps, slower than ${lowestVariant}kbps, the lowest quality you made available. Consider adding a lower quality with a lower bitrate if the errors over time warrant this.`;
   }
 

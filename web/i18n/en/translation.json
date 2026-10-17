@@ -508,6 +508,27 @@
 			"overLimit": "Over limit",
 			"placeholder": "Your chat display name"
 		},
+		"Player": {
+			"play": "Play",
+			"pause": "Pause",
+			"mute": "Mute",
+			"volume": "Volume",
+			"fullscreen": "Fullscreen",
+			"exitFullscreen": "Exit fullscreen",
+			"pictureInPicture": "Picture in picture",
+			"airplay": "AirPlay",
+			"quality": "Quality",
+			"settings": "Playback settings",
+			"catchUp": "Catch up to live",
+			"auto": "Auto",
+			"lowLatency": "Low Latency",
+			"live": "Live",
+			"liveLowLatency": "Live (Low Latency)",
+			"behind": "~{{seconds}}s behind",
+			"jumpToLive": "Jump to present",
+			"playbackError": "Unable to play this stream in this browser.",
+			"retry": "Retry"
+		},
 		"StreamsTab": {
 			"errorLoadingStreams": "Error loading streams",
 			"loadingStreams": "Loading featured streams...",

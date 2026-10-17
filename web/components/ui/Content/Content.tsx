@@ -65,13 +65,10 @@ const BrowserNotifyModal = dynamic(
   },
 );
 
-const OwncastPlayer = dynamic(
-  () => import('../../video/OwncastPlayer/OwncastPlayer').then(mod => mod.OwncastPlayer),
-  {
-    ssr: false,
-    loading: () => <Skeleton loading active paragraph={{ rows: 12 }} />,
-  },
-);
+const OwncastPlayer = dynamic(() => import('../../video/Player').then(mod => mod.Player), {
+  ssr: false,
+  loading: () => <Skeleton loading active paragraph={{ rows: 12 }} />,
+});
 
 const ChatModal = dynamic(
   () => import('../../modals/ChatModal/ChatModal').then(mod => mod.ChatModal),

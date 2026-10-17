@@ -12,7 +12,7 @@ import {
   appStateAtom,
 } from '../../../components/stores/ClientConfigStore';
 import { Statusbar } from '../../../components/ui/Statusbar/Statusbar';
-import { OwncastPlayer } from '../../../components/video/OwncastPlayer/OwncastPlayer';
+import { Player as OwncastPlayer } from '../../../components/video/Player';
 import { Theme } from '../../../components/theme/Theme';
 import styles from './VideoEmbed.module.scss';
 import { OfflineEmbed } from '../../../components/ui/OfflineEmbed/OfflineEmbed';
@@ -95,8 +95,8 @@ export default function VideoEmbed() {
   );
 
   const getView = () => {
-    // Wait for the config too: the player's video.js options (autoplay among
-    // them) are init-only, so it must not mount with default config values.
+    // Wait for config so the player does not mount with default autoplay
+    // behavior before the server settings have loaded.
     if (appState.appLoading || !configLoaded) {
       return loadingState;
     }

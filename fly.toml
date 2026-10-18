@@ -1,38 +1,43 @@
-app = "owncast"
-primary_region = "iad"
-kill_signal = "SIGTERM"
-kill_timeout = "30s"
+# fly.toml app configuration file generated for stream-logal-dev on 2026-10-18T00:38:55Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'stream-logal-dev'
+primary_region = 'iad'
+kill_signal = 'SIGTERM'
+kill_timeout = '30s'
 
 [build]
-  dockerfile = "Dockerfile"
-
-[env]
-  CLOUDFLARE_STREAM_LIVE_INPUT_ID = "REPLACE_WITH_CLOUDFLARE_INPUT_ID"
-  CLOUDFLARE_STREAM_CUSTOMER_CODE = "REPLACE_WITH_CLOUDFLARE_CUSTOMER_CODE"
+  dockerfile = 'Dockerfile'
 
 [deploy]
-  strategy = "immediate"
+  strategy = 'immediate'
+
+[env]
+  CLOUDFLARE_STREAM_CUSTOMER_CODE = 'REPLACE_WITH_CLOUDFLARE_CUSTOMER_CODE'
+  CLOUDFLARE_STREAM_LIVE_INPUT_ID = 'REPLACE_WITH_CLOUDFLARE_INPUT_ID'
 
 [[mounts]]
-  source = "owncast_data"
-  destination = "/app/data"
+  source = 'owncast_data'
+  destination = '/app/data'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "off"
+  auto_stop_machines = 'off'
   auto_start_machines = false
   min_machines_running = 1
 
   [[http_service.checks]]
-    method = "GET"
-    path = "/api/status"
-    interval = "30s"
-    timeout = "5s"
-    grace_period = "30s"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '30s'
+    method = 'GET'
+    path = '/api/status'
 
 [[vm]]
-  cpu_kind = "shared"
+  memory = '512mb'
+  cpu_kind = 'shared'
   cpus = 1
-  memory = "512mb"
   memory_mb = 512

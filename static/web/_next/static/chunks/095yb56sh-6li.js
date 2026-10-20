@@ -2,7 +2,7 @@ __turbopack_load_page_chunks__("/embed/video", [
   "static/chunks/1ajg3t2fur4y2.js",
   "static/chunks/0p-oext_91eke.js",
   "static/chunks/3sck2w6y22j-k.js",
-  "static/chunks/1orrrsvvu9bh8.js",
+  "static/chunks/3koqo9q5ba27q.js",
   "static/chunks/0ht5307udek52.js",
   "static/chunks/1q_kcyk_j87gs.js",
   "static/chunks/02if5pgqr6o9c.js",
@@ -16,5 +16,5 @@ __turbopack_load_page_chunks__("/embed/video", [
   "static/chunks/1e1vpn8f62993.js",
   "static/chunks/2xlx6h5xthqc-.js",
   "static/chunks/2twrodxjznwu4.css",
-  "static/chunks/turbopack-057kbrsgbx7px.js"
+  "static/chunks/turbopack-2obak0ul0f9aa.js"
 ])

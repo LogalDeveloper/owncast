@@ -27,7 +27,7 @@ __turbopack_load_page_chunks__("/admin/plugins/configure", [
   "static/chunks/3f_jeo8uk5j1i.js",
   "static/chunks/36h4xtudar2o2.js",
   "static/chunks/44g_5y5lbge8a.js",
-  "static/chunks/0e15z3h4xb9z9.js",
+  "static/chunks/0md1pi5iub1nw.js",
   "static/chunks/2twrodxjznwu4.css",
-  "static/chunks/turbopack-3tn7m7i4nm0xw.js"
+  "static/chunks/turbopack-3mtyge3lltqdl.js"
 ])

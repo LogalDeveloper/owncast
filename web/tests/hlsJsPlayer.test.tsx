@@ -19,7 +19,7 @@ jest.mock('hls.js', () => {
   const constructor = jest.fn().mockImplementation(config => {
     const listeners = new Map<string, Set<(...args: any[]) => void>>();
     return {
-      config: { lowLatencyMode: true, ...config },
+      config: { lowLatencyMode: false, ...config },
       on: jest.fn((event, listener) => {
         if (!listeners.has(event)) listeners.set(event, new Set());
         listeners.get(event).add(listener);
@@ -91,7 +91,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-test('creates one HLS instance with low-latency playback and cleans up on source changes', () => {
+test('creates one HLS instance with standard playback and cleans up on source changes', () => {
   const cleanupMedia = jest.fn();
   const onReady = jest.fn(() => cleanupMedia);
   const onError = jest.fn();
@@ -102,7 +102,7 @@ test('creates one HLS instance with low-latency playback and cleans up on source
   expect(Hls).toHaveBeenCalledWith(
     expect.objectContaining({
       autoStartLoad: false,
-      lowLatencyMode: true,
+      lowLatencyMode: false,
       maxLiveSyncPlaybackRate: 1,
       startLevel: -1,
     }),
@@ -172,13 +172,13 @@ test('keeps the viewer idle until play and stops loading when the viewer pauses'
   expect(hls.loadSource).toHaveBeenCalledTimes(1);
 });
 
-test('uses a valid real hls.js configuration with adaptive latency and automatic quality', () => {
+test('uses a valid real hls.js configuration with standard latency and automatic quality', () => {
   render(<HlsPlayer source={source} title="Stream" onReady={jest.fn()} onError={jest.fn()} />);
   const ActualHls = jest.requireActual('hls.js');
   const config = (Hls as unknown as jest.Mock).mock.calls.at(-1)[0];
   const engine = new ActualHls(config);
   expect(engine.config.autoStartLoad).toBe(false);
-  expect(engine.config.lowLatencyMode).toBe(true);
+  expect(engine.config.lowLatencyMode).toBe(false);
   expect(engine.config.liveSyncDurationCount).toBe(3);
   expect(engine.config.liveMaxLatencyDurationCount).toBe(Infinity);
   expect(engine.config.maxLiveSyncPlaybackRate).toBe(1);
@@ -187,13 +187,11 @@ test('uses a valid real hls.js configuration with adaptive latency and automatic
   Object.defineProperty(engine, 'latestLevelDetails', {
     value: { targetduration: 3, holdBack: 0, partHoldBack: 1.5 },
   });
-  expect(engine.targetLatency).toBe(1.5);
-  engine.config.lowLatencyMode = false;
   expect(engine.targetLatency).toBe(9);
   engine.destroy();
 });
 
-test('keeps low latency enabled after repeated playback stalls and source changes', () => {
+test('keeps standard playback after repeated stalls and source changes', () => {
   const onReady = jest.fn();
   const onError = jest.fn();
   const view = render(
@@ -206,10 +204,10 @@ test('keeps low latency enabled after repeated playback stalls and source change
   const hls = latestEngine();
   const stall = { fatal: false, details: Hls.ErrorDetails.BUFFER_STALLED_ERROR };
   hls.trigger(Hls.Events.ERROR, stall);
-  expect(hls.config.lowLatencyMode).toBe(true);
+  expect(hls.config.lowLatencyMode).toBe(false);
   act(() => jest.advanceTimersByTime(10_000));
   hls.trigger(Hls.Events.ERROR, stall);
-  expect(hls.config.lowLatencyMode).toBe(true);
+  expect(hls.config.lowLatencyMode).toBe(false);
   expect(hls.config.maxLiveSyncPlaybackRate).toBe(1);
   expect(hls.autoLevelEnabled).toBe(true);
   expect(video.currentTime).toBe(120);
@@ -219,13 +217,13 @@ test('keeps low latency enabled after repeated playback stalls and source change
   expect(onReady).toHaveBeenCalledTimes(1);
   expect(onError).not.toHaveBeenCalled();
   act(() => jest.advanceTimersByTime(120_000));
-  expect(hls.config.lowLatencyMode).toBe(true);
+  expect(hls.config.lowLatencyMode).toBe(false);
   view.rerender(
     <HlsPlayer source="/another.m3u8" title="Stream" onReady={onReady} onError={onError} />,
   );
   const next = latestEngine();
   next.trigger(Hls.Events.ERROR, stall);
-  expect(next.config.lowLatencyMode).toBe(true);
+  expect(next.config.lowLatencyMode).toBe(false);
 });
 
 test('prefers hls.js when both native playback and MSE are available', () => {
@@ -287,7 +285,7 @@ test('only jumps to the HLS live position after a viewer clicks the behind indic
       onAudioInteraction={jest.fn()}
     />,
   );
-  expect(screen.getByText('Live (Low Latency)')).toBeInTheDocument();
+  expect(screen.getByText('Live')).toBeInTheDocument();
   view.rerender(
     <PlayerControls
       video={video}
@@ -297,7 +295,7 @@ test('only jumps to the HLS live position after a viewer clicks the behind indic
       onAudioInteraction={jest.fn()}
     />,
   );
-  expect(screen.queryByText('Live (Low Latency)')).not.toBeInTheDocument();
+  expect(screen.queryByText('Live')).not.toBeInTheDocument();
   view.rerender(
     <PlayerControls
       video={video}
@@ -318,10 +316,9 @@ test('only jumps to the HLS live position after a viewer clicks the behind indic
   expect(video.playbackRate).toBe(1);
 });
 
-test('shows the plain live label when low-latency mode is disabled', () => {
+test('shows the plain live label for standard playback', () => {
   const video = makeVideo();
   const hls = new Hls();
-  hls.config.lowLatencyMode = false;
   render(
     <PlayerControls
       video={video}
@@ -377,7 +374,7 @@ test('offers manifest qualities with Auto selected by default', async () => {
   expect(selectedQuality?.querySelector('[data-icon="check"]')).toBeInTheDocument();
 });
 
-test('exposes latency settings, respects viewer overrides, and changes catch-up without reloading', async () => {
+test('offers quality settings without latency switches and keeps standard playback on source changes', async () => {
   const view = render(<HlsJsPlayer source={source} title="Stream" online />);
   const video = screen.getByLabelText('Stream') as HTMLVideoElement;
   jest.spyOn(video, 'paused', 'get').mockReturnValue(false);
@@ -385,11 +382,13 @@ test('exposes latency settings, respects viewer overrides, and changes catch-up 
   fireEvent.play(video);
   fireEvent.playing(video);
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Playback settings' })));
-  const lowLatency = screen.getByRole('switch', { name: 'Low latency' });
-  const catchUp = screen.getByRole('switch', { name: 'Catch up to live' });
-  expect(lowLatency).toBeChecked();
-  expect(catchUp).not.toBeChecked();
-  expect(screen.getByRole('separator')).toBeInTheDocument();
+  expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+  expect(screen.getAllByRole('menuitem').map(item => item.textContent?.trim())).toEqual([
+    'Auto',
+    '1080p',
+    '720p',
+  ]);
   expect(screen.getByText('Auto').closest('li')).toHaveClass('ant-dropdown-menu-item-selected');
   const stall = { fatal: false, details: Hls.ErrorDetails.BUFFER_STALLED_ERROR };
   act(() => {
@@ -397,49 +396,28 @@ test('exposes latency settings, respects viewer overrides, and changes catch-up 
     hls.trigger(Hls.Events.ERROR, stall);
     jest.advanceTimersByTime(1000);
   });
-  expect(lowLatency).toBeChecked();
-  expect(hls.config.lowLatencyMode).toBe(true);
-  await act(async () => fireEvent.click(lowLatency));
-  expect(lowLatency).not.toBeChecked();
-  expect(catchUp).toBeDisabled();
-  expect(screen.getByText('Live')).toBeInTheDocument();
-  await act(async () => fireEvent.click(lowLatency));
-  expect(hls.config.lowLatencyMode).toBe(true);
-  expect(catchUp).toBeEnabled();
-  act(() => {
-    hls.trigger(Hls.Events.ERROR, stall);
-    hls.trigger(Hls.Events.ERROR, stall);
-    jest.advanceTimersByTime(1000);
-  });
-  expect(lowLatency).toBeChecked();
-  expect(hls.config.lowLatencyMode).toBe(true);
-  await act(async () => fireEvent.click(catchUp));
-  expect(catchUp).toBeChecked();
-  expect(hls.config.maxLiveSyncPlaybackRate).toBe(1.03);
-  video.playbackRate = 1.03;
-  await act(async () => fireEvent.click(catchUp));
-  expect(hls.config.maxLiveSyncPlaybackRate).toBe(1);
-  expect(video.playbackRate).toBe(1);
-  await act(async () => fireEvent.click(catchUp));
-  video.playbackRate = 1.03;
-  await act(async () => fireEvent.click(lowLatency));
-  expect(video.playbackRate).toBe(1);
   expect(hls.config.lowLatencyMode).toBe(false);
+  expect(hls.config.maxLiveSyncPlaybackRate).toBe(1);
+  expect(screen.getByText('Live')).toBeInTheDocument();
+  expect(video.playbackRate).toBe(1);
   expect(hls.currentLevel).toBe(-1);
   expect(Hls).toHaveBeenCalledTimes(1);
   expect(hls.loadSource).toHaveBeenCalledTimes(1);
   view.rerender(<HlsJsPlayer source="/another.m3u8" title="Stream" online />);
   expect(latestEngine().config.lowLatencyMode).toBe(false);
-  expect(latestEngine().config.maxLiveSyncPlaybackRate).toBe(1.03);
+  expect(latestEngine().config.maxLiveSyncPlaybackRate).toBe(1);
 });
 
-test('offers latency settings for single-rendition streams', async () => {
+test('offers quality selection without latency switches for single-rendition streams', async () => {
   render(<HlsJsPlayer source={source} title="Stream" online />);
   latestEngine().levels = [{ height: 720, bitrate: 2_000_000 }];
   act(() => jest.advanceTimersByTime(1000));
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Playback settings' })));
-  expect(screen.getByRole('switch', { name: 'Low latency' })).toBeChecked();
-  expect(screen.getByRole('switch', { name: 'Catch up to live' })).toBeEnabled();
+  expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  expect(screen.getAllByRole('menuitem').map(item => item.textContent?.trim())).toEqual([
+    'Auto',
+    '720p',
+  ]);
 });
 
 test('falls back to muted autoplay and only shows the large unmute overlay for automatic mute', async () => {

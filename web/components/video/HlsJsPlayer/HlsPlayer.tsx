@@ -4,32 +4,17 @@ import Hls from 'hls.js';
 type HlsPlayerProps = {
   source: string;
   title: string;
-  lowLatency?: boolean;
-  catchUp?: boolean;
   onReady: (video: HTMLVideoElement, hls: Hls | null) => void | (() => void);
   onError: () => void;
 };
 
-export const HlsPlayer: FC<HlsPlayerProps> = ({
-  source,
-  title,
-  lowLatency = true,
-  catchUp = false,
-  onReady,
-  onError,
-}) => {
+export const HlsPlayer: FC<HlsPlayerProps> = ({ source, title, onReady, onError }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
   const callbacks = useRef({ onReady, onError });
-  const preferences = useRef({ lowLatency, catchUp });
 
   useEffect(() => {
     callbacks.current = { onReady, onError };
   }, [onReady, onError]);
-
-  useEffect(() => {
-    preferences.current = { lowLatency, catchUp };
-  }, [lowLatency, catchUp]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -40,11 +25,10 @@ export const HlsPlayer: FC<HlsPlayerProps> = ({
     if (Hls.isSupported()) {
       hls = new Hls({
         autoStartLoad: false,
-        lowLatencyMode: preferences.current.lowLatency,
-        maxLiveSyncPlaybackRate: preferences.current.catchUp ? 1.03 : 1,
+        lowLatencyMode: false,
+        maxLiveSyncPlaybackRate: 1,
         startLevel: -1,
       });
-      hlsRef.current = hls;
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal) return;
         if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !recoveredMediaError) {
@@ -88,24 +72,11 @@ export const HlsPlayer: FC<HlsPlayerProps> = ({
       video.removeEventListener('ended', handlePause);
       video.removeEventListener('error', handleNativeError);
       hls?.destroy();
-      hlsRef.current = null;
       video.pause();
       video.removeAttribute('src');
       video.load();
     };
   }, [source]);
-
-  useEffect(() => {
-    if (!hlsRef.current) return;
-    hlsRef.current.config.lowLatencyMode = lowLatency;
-    if (!lowLatency) videoRef.current.playbackRate = 1;
-  }, [lowLatency]);
-
-  useEffect(() => {
-    if (!hlsRef.current) return;
-    hlsRef.current.config.maxLiveSyncPlaybackRate = catchUp ? 1.03 : 1;
-    if (!catchUp) videoRef.current.playbackRate = 1;
-  }, [catchUp]);
 
   return <video ref={videoRef} aria-label={title} playsInline preload="none" />;
 };

@@ -21,7 +21,7 @@ func (*externalTestEngine) Start() error     { return nil }
 func (*externalTestEngine) Stop() error      { return nil }
 func (*externalTestEngine) ViewerCount() int { return 0 }
 func (*externalTestEngine) PlaybackURL() string {
-	return "https://customer-code.cloudflarestream.com/0123456789abcdef0123456789abcdef/manifest/video.m3u8?protocol=llhls"
+	return "https://customer-code.cloudflarestream.com/0123456789abcdef0123456789abcdef/manifest/video.m3u8"
 }
 
 func (e *externalTestEngine) ThumbnailURL() string {
@@ -36,12 +36,12 @@ func TestExternalHLSRedirect(t *testing.T) {
 		return engine
 	}})})
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
-		request := httptest.NewRequest(method, "/hls/stream.m3u8?token=secret&protocol=hls", nil)
+		request := httptest.NewRequest(method, "/hls/stream.m3u8?token=secret&protocol=llhls", nil)
 		request.Header.Set("Authorization", "Bearer private")
 		writer := httptest.NewRecorder()
 		h.HandleHLSRequest(writer, request)
 		if writer.Code != http.StatusFound || writer.Header().Get("Location") != engine.PlaybackURL() {
-			t.Fatalf("%s: expected fixed LL-HLS redirect, got %d %s", method, writer.Code, writer.Header().Get("Location"))
+			t.Fatalf("%s: expected fixed standard HLS redirect, got %d %s", method, writer.Code, writer.Header().Get("Location"))
 		}
 		if writer.Header().Get("Access-Control-Allow-Origin") != "*" || !strings.Contains(writer.Header().Get("Cache-Control"), "no-cache") {
 			t.Fatal("redirect lost CORS or no-cache headers")

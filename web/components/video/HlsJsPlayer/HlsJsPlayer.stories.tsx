@@ -73,7 +73,7 @@ const ControlsPreview = () => {
         <PlayerControls
           video={video}
           hls={null}
-          playing={false}
+          playing
           onPlay={() => {}}
           onAudioInteraction={() => {}}
         />

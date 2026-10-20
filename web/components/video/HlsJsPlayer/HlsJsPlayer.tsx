@@ -43,8 +43,6 @@ export const HlsJsPlayer: FC<PlayerProps> = ({
   const [autoplayMuted, setAutoplayMuted] = useState(false);
   const [failed, setFailed] = useState(false);
   const [revision, setRevision] = useState(0);
-  const [lowLatency, setLowLatency] = useState(true);
-  const [catchUp, setCatchUp] = useState(false);
   const setVideoPlaying = useSetAtom(isVideoPlayingAtom);
   const clockSkew = useAtomValue(clockSkewAtom);
   const metricsRef = useRef<PlaybackMetrics>(null);
@@ -168,8 +166,6 @@ export const HlsJsPlayer: FC<PlayerProps> = ({
               key={revision}
               source={source}
               title={title}
-              lowLatency={lowLatency}
-              catchUp={catchUp}
               onReady={handleReady}
               onError={() => {
                 setFailed(true);
@@ -227,9 +223,6 @@ export const HlsJsPlayer: FC<PlayerProps> = ({
               playing={playing}
               onPlay={play}
               onAudioInteraction={audioInteraction}
-              onLowLatencyChange={setLowLatency}
-              catchUp={catchUp}
-              onCatchUpChange={setCatchUp}
             />
           )}
         </div>

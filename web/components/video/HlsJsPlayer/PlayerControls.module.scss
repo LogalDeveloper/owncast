@@ -78,17 +78,6 @@
   margin-inline-end: 30px;
 }
 
-.setting {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-
-  :global(.ant-switch) {
-    flex-shrink: 0;
-  }
-}
-
 @media (width <= 480px) {
   .controls {
     gap: 0;

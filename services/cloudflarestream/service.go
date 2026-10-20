@@ -108,11 +108,9 @@ func (s *Service) endpoint(id, suffix string) string {
 	return result.String()
 }
 
-// PlaybackURL is the fixed LL-HLS manifest URL for the live input.
+// PlaybackURL is the standard HLS manifest URL for the live input.
 func (s *Service) PlaybackURL() string {
-	result, _ := url.Parse(s.endpoint(s.config.inputID, "manifest/video.m3u8"))
-	result.RawQuery = url.Values{"protocol": {"llhls"}}.Encode()
-	return result.String()
+	return s.endpoint(s.config.inputID, "manifest/video.m3u8")
 }
 
 // ViewerCount is the last successfully polled live viewer count.

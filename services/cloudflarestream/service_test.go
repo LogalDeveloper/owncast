@@ -65,9 +65,9 @@ func TestConfigAndPlayback(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := New(Deps{Config: config, Client: &http.Client{}, Events: &events{}})
-	want := "https://customer-abc123.cloudflarestream.com/" + inputID + "/manifest/video.m3u8?protocol=llhls"
+	want := "https://customer-abc123.cloudflarestream.com/" + inputID + "/manifest/video.m3u8"
 	if service.PlaybackURL() != want || service.ViewerCount() != 0 || service.ThumbnailURL() != "" {
-		t.Fatal("incorrect default state or LL-HLS URL")
+		t.Fatal("incorrect default state or standard HLS URL")
 	}
 }
 

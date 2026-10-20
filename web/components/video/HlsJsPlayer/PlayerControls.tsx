@@ -1,5 +1,5 @@
 import { FC, useEffect, useState } from 'react';
-import { Button, Dropdown, Slider, Switch, Tooltip } from 'antd';
+import { Button, Dropdown, Slider, Tooltip } from 'antd';
 import {
   CheckOutlined,
   FullscreenExitOutlined,
@@ -33,9 +33,6 @@ type PlayerControlsProps = {
   playing: boolean;
   onPlay: () => void;
   onAudioInteraction: () => void;
-  onLowLatencyChange?: (enabled: boolean) => void;
-  catchUp?: boolean;
-  onCatchUpChange?: (enabled: boolean) => void;
 };
 
 export const PlayerControls: FC<PlayerControlsProps> = ({
@@ -44,9 +41,6 @@ export const PlayerControls: FC<PlayerControlsProps> = ({
   playing,
   onPlay,
   onAudioInteraction,
-  onLowLatencyChange,
-  catchUp = false,
-  onCatchUpChange,
 }) => {
   const { t } = useTranslation();
   const keys = Localization.Frontend.Player;
@@ -59,7 +53,6 @@ export const PlayerControls: FC<PlayerControlsProps> = ({
   const [qualities, setQualities] = useState<Hls['levels']>([]);
   const [quality, setQuality] = useState('-1');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [lowLatencyMode, setLowLatencyMode] = useState(hls?.config.lowLatencyMode === true);
   const canPip =
     (document.pictureInPictureEnabled && !video.disablePictureInPicture) ||
     appleVideo.webkitSupportsPresentationMode?.('picture-in-picture');
@@ -89,7 +82,6 @@ export const PlayerControls: FC<PlayerControlsProps> = ({
       setBehind(Number.isFinite(seconds) && seconds > target + 3);
       setQualities(hls ? [...hls.levels] : []);
       setQuality(hls && !hls.autoLevelEnabled ? String(hls.manualLevel) : '-1');
-      setLowLatencyMode(hls?.config.lowLatencyMode === true);
     };
     updateVolume();
     updateStream();
@@ -174,10 +166,6 @@ export const PlayerControls: FC<PlayerControlsProps> = ({
   const fullscreenLabel = fullscreen
     ? label(keys.exitFullscreen, 'Exit fullscreen')
     : label(keys.fullscreen, 'Fullscreen');
-  const changeLowLatency = (enabled: boolean) => {
-    onLowLatencyChange?.(enabled);
-    setLowLatencyMode(enabled);
-  };
   const orderedQualities = qualities
     .map((level, index) => ({ level, index }))
     .sort(
@@ -233,10 +221,7 @@ export const PlayerControls: FC<PlayerControlsProps> = ({
         ) : (
           <span className={styles.latency} data-at-live-edge="true">
             <span className={styles.liveIndicator} aria-hidden="true" />
-            <Translation
-              translationKey={lowLatencyMode ? keys.liveLowLatency : keys.live}
-              defaultText={lowLatencyMode ? 'Live (Low Latency)' : 'Live'}
-            />
+            <Translation translationKey={keys.live} defaultText="Live" />
           </span>
         ))}
       {hls && (
@@ -265,55 +250,11 @@ export const PlayerControls: FC<PlayerControlsProps> = ({
                   level.name ||
                   (level.height ? `${level.height}p` : `${Math.round(level.bitrate / 1000)} kbps`),
               })),
-              ...(onLowLatencyChange && onCatchUpChange
-                ? [
-                    { type: 'divider' as const },
-                    {
-                      key: 'lowLatency',
-                      label: (
-                        <span className={styles.setting}>
-                          <Translation translationKey={keys.lowLatency} defaultText="Low latency" />
-                          <Switch
-                            size="small"
-                            checked={lowLatencyMode}
-                            aria-label={label(keys.lowLatency, 'Low latency')}
-                            onChange={changeLowLatency}
-                            onClick={(_checked, event) => event.stopPropagation()}
-                          />
-                        </span>
-                      ),
-                    },
-                    {
-                      key: 'catchUp',
-                      disabled: !lowLatencyMode,
-                      label: (
-                        <span className={styles.setting}>
-                          <Translation
-                            translationKey={keys.catchUp}
-                            defaultText="Catch up to live"
-                          />
-                          <Switch
-                            size="small"
-                            checked={catchUp}
-                            disabled={!lowLatencyMode}
-                            aria-label={label(keys.catchUp, 'Catch up to live')}
-                            onChange={onCatchUpChange}
-                            onClick={(_checked, event) => event.stopPropagation()}
-                          />
-                        </span>
-                      ),
-                    },
-                  ]
-                : []),
             ],
             onClick: ({ key }) => {
-              if (key === 'lowLatency') changeLowLatency(!lowLatencyMode);
-              else if (key === 'catchUp') onCatchUpChange?.(!catchUp);
-              else {
-                hls.currentLevel = Number(key);
-                setQuality(key);
-                setMenuOpen(false);
-              }
+              hls.currentLevel = Number(key);
+              setQuality(key);
+              setMenuOpen(false);
             },
           }}
         >

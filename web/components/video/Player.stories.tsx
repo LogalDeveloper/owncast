@@ -1,10 +1,9 @@
 import { Meta, StoryObj } from '@storybook/nextjs';
 import { CSSProperties } from 'react';
-import { Provider } from 'jotai';
 import { Player } from './Player';
 
 const meta = {
-  title: 'owncast/Player/Hls.js',
+  title: 'owncast/Player/Shared player',
   component: Player,
   decorators: [
     Story => (
@@ -17,9 +16,7 @@ const meta = {
           } as CSSProperties
         }
       >
-        <Provider>
-          <Story />
-        </Provider>
+        <Story />
       </div>
     ),
   ],
@@ -30,8 +27,17 @@ type Story = StoryObj<typeof meta>;
 
 export const LiveDemo: Story = {
   args: {
-    source: 'https://watch.owncast.online/hls/stream.m3u8',
+    source:
+      'https://customer-f33zs165nr7gyfy4.cloudflarestream.com/6b9e68b07dfee8cc2d116e4c51d6a957/iframe',
     title: 'Stream',
     online: true,
   },
+};
+
+export const MissingConfiguration: Story = {
+  args: { source: '', title: 'Stream', online: true },
+};
+
+export const Offline: Story = {
+  args: { ...LiveDemo.args, online: false },
 };

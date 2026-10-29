@@ -1,13 +1,7 @@
 import { intervalToDuration, formatDistanceToNow, formatDuration } from 'date-fns';
 import { FC, useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
 import classNames from 'classnames';
 import styles from './Statusbar.module.scss';
-
-// Lazy loaded components
-const EyeFilled = dynamic(() => import('@ant-design/icons/EyeFilled'), {
-  ssr: false,
-});
 
 export type StatusbarProps = {
   online: Boolean;
@@ -41,7 +35,6 @@ export const Statusbar: FC<StatusbarProps> = ({
   online,
   lastConnectTime = null,
   lastDisconnectTime = null,
-  viewerCount,
   className,
 }) => {
   const [, setNow] = useState(new Date());
@@ -55,18 +48,10 @@ export const Statusbar: FC<StatusbarProps> = ({
   }, []);
 
   let onlineMessage = '';
-  let rightSideMessage: any;
+  let rightSideMessage = '';
   if (online && lastConnectTime) {
     const duration = makeDurationString(new Date(lastConnectTime));
     onlineMessage = `Live for  ${duration}`;
-    rightSideMessage = viewerCount > 0 && (
-      <>
-        <span className={styles.viewerIcon}>
-          <EyeFilled />
-        </span>
-        <span>{` ${viewerCount}`}</span>
-      </>
-    );
   } else if (!online) {
     onlineMessage = 'Offline';
     if (lastDisconnectTime) {

@@ -27,6 +27,9 @@ func TestExternalStatusAndProviderPeaks(t *testing.T) {
 	for index := range 10 {
 		s.SetViewerActive(&models.Viewer{ClientID: string(rune('a' + index)), LastSeen: time.Now()})
 	}
+	if len(s.GetActiveViewers()) != 0 {
+		t.Fatal("external playback must not collect local viewer records")
+	}
 	if s.GetStatus().ViewerCount != 42 || s.GetStatus().SessionMaxViewerCount != 0 {
 		t.Fatal("local viewer activity changed provider count or peaks")
 	}

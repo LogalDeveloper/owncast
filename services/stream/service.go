@@ -181,6 +181,14 @@ func (s *Service) PlaybackURL() string {
 	return ""
 }
 
+// IframeURL forwards to the external engine, or "" for the local engine.
+func (s *Service) IframeURL() string {
+	if engine, ok := s.engine.(ExternalPlayback); ok {
+		return engine.IframeURL()
+	}
+	return ""
+}
+
 // ThumbnailURL forwards to the external engine, or "" for the local engine.
 func (s *Service) ThumbnailURL() string {
 	if engine, ok := s.engine.(ExternalPlayback); ok {

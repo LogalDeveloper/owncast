@@ -19,6 +19,12 @@ import { ServerStatusServiceContext } from '../services/status-service';
 import { makeEmptyClientConfig } from '../interfaces/client-config.model';
 import { makeEmptyServerStatus } from '../interfaces/server-status.model';
 import { MessageType, SocketEvent } from '../interfaces/socket-events';
+import { CloudflareStreamPlayer } from '../components/video/CloudflareStreamPlayer/CloudflareStreamPlayer';
+import { Statusbar } from '../components/ui/Statusbar/Statusbar';
+
+jest.mock('next/router', () => ({
+  useRouter: () => ({ query: {}, pathname: '/', asPath: '/', push: jest.fn(), replace: jest.fn() }),
+}));
 
 type MockSocket = {
   accessToken: string;
@@ -45,7 +51,14 @@ const hydrationWindow = window as unknown as {
   statusHydration?: string;
 };
 
-const testConfig = { ...makeEmptyClientConfig(), name: 'test server', summary: 'from api' };
+const iframeURL =
+  'https://customer-example.cloudflarestream.com/0123456789abcdef0123456789abcdef/iframe';
+const testConfig = {
+  ...makeEmptyClientConfig(),
+  name: 'test server',
+  summary: 'from api',
+  x_cloudflareStreamIframeUrl: iframeURL,
+};
 const onlineStatus = { ...makeEmptyServerStatus(), online: true, viewerCount: 3 };
 
 type Services = {
@@ -113,6 +126,7 @@ describe('ClientConfigStore', () => {
     await waitFor(() => expect(store.get(isClientConfigLoadedAtom)).toBe(true));
     expect(services.configService.getConfig).toHaveBeenCalled();
     expect(store.get(clientConfigStateAtom).summary).toBe('from api');
+    expect(store.get(clientConfigStateAtom).x_cloudflareStreamIframeUrl).toBe(iframeURL);
 
     await waitFor(() => expect(store.get(serverStatusState).online).toBe(true));
     // The app state machine must leave "loading" and reflect the live stream.
@@ -129,6 +143,7 @@ describe('ClientConfigStore', () => {
 
     await waitFor(() => expect(store.get(isClientConfigLoadedAtom)).toBe(true));
     expect(store.get(clientConfigStateAtom).summary).toBe('from hydration');
+    expect(store.get(clientConfigStateAtom).x_cloudflareStreamIframeUrl).toBe(iframeURL);
     expect(store.get(serverStatusState).online).toBe(true);
     await waitFor(() => expect(store.get(appStateAtom).videoAvailable).toBe(true));
     expect(services.configService.getConfig).not.toHaveBeenCalled();
@@ -272,5 +287,49 @@ describe('ClientConfigStore', () => {
 
     await waitFor(() => expect(store.get(fatalErrorStateAtom)).not.toBeNull());
     expect(store.get(fatalErrorStateAtom).title).toBe('Unable to reach Owncast server');
+  });
+});
+
+describe('Cloudflare iframe playback', () => {
+  it('renders the stock iframe without a local player or SDK', () => {
+    const { container, getByTitle } = render(
+      <CloudflareStreamPlayer source={iframeURL} online title="Live stream" />,
+    );
+
+    const iframe = getByTitle('Live stream');
+    expect(iframe.getAttribute('src')).toBe(iframeURL);
+    expect(iframe.hasAttribute('allowfullscreen')).toBe(true);
+    expect(container.querySelector('video, script, button')).toBeNull();
+  });
+
+  it('updates the source and removes the iframe when the provider goes offline', () => {
+    const { getByTitle, queryByTitle, rerender } = render(
+      <CloudflareStreamPlayer source={iframeURL} online title="Live stream" />,
+    );
+    rerender(
+      <CloudflareStreamPlayer source={iframeURL} online initiallyMuted title="Live stream" />,
+    );
+    expect(new URL(getByTitle('Live stream').getAttribute('src')).searchParams.get('muted')).toBe(
+      'true',
+    );
+    rerender(<CloudflareStreamPlayer source={iframeURL} online={false} title="Live stream" />);
+    expect(queryByTitle('Live stream')).toBeNull();
+  });
+
+  it('reports missing iframe metadata instead of falling back to local HLS', () => {
+    const { getByRole, container } = render(
+      <CloudflareStreamPlayer source={undefined} online title="Live stream" />,
+    );
+    expect(getByRole('alert')).toBeTruthy();
+    expect(container.querySelector('iframe, video')).toBeNull();
+  });
+
+  it('keeps the live duration without rendering an Owncast viewer count', () => {
+    const { container } = render(
+      <Statusbar online lastConnectTime={new Date()} viewerCount={42} />,
+    );
+    expect(container.textContent).toContain('Live for');
+    expect(container.querySelector('svg')).toBeNull();
+    expect(container.querySelector('div').children[1].textContent).toBe('');
   });
 });

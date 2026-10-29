@@ -69,6 +69,13 @@ func TestConfigAndPlayback(t *testing.T) {
 	if service.PlaybackURL() != want || service.ViewerCount() != 0 || service.ThumbnailURL() != "" {
 		t.Fatal("incorrect default state or standard HLS URL")
 	}
+	iframeURL := "https://customer-abc123.cloudflarestream.com/" + inputID + "/iframe"
+	for _, uid := range []string{"", videoID, inputID} {
+		service.applyLifecycle(uid != "", uid)
+		if service.IframeURL() != iframeURL {
+			t.Fatal("iframe URL must use the stable public live input, not the broadcast UID")
+		}
+	}
 }
 
 func TestStartValidatesLifecycle(t *testing.T) {

@@ -35,6 +35,7 @@ export interface ClientConfig {
   notifications: Notifications;
   authentication: Authentication;
   socketHostOverride?: string;
+  x_cloudflareStreamIframeUrl?: string;
 }
 
 interface Authentication {

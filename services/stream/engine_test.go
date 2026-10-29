@@ -23,6 +23,7 @@ func (engine *fakeExternalEngine) Stop() error {
 func (*fakeExternalEngine) PlaybackURL() string {
 	return "https://example.com/video.m3u8?protocol=llhls"
 }
+func (*fakeExternalEngine) IframeURL() string    { return "https://example.com/iframe" }
 func (*fakeExternalEngine) ViewerCount() int     { return 42 }
 func (*fakeExternalEngine) ThumbnailURL() string { return "https://example.com/thumbnail.jpg" }
 
@@ -39,7 +40,7 @@ func TestExplicitEngineInjection(t *testing.T) {
 	if s.fileWriter != nil || s.rtmp != nil {
 		t.Fatal("external engine constructed local media plumbing")
 	}
-	if s.PlaybackURL() != engine.PlaybackURL() || s.ThumbnailURL() != engine.ThumbnailURL() {
+	if s.PlaybackURL() != engine.PlaybackURL() || s.ThumbnailURL() != engine.ThumbnailURL() || s.IframeURL() != engine.IframeURL() {
 		t.Fatal("external playback accessors were not forwarded")
 	}
 	s.Stop(context.Background())
@@ -49,6 +50,9 @@ func TestExplicitEngineInjection(t *testing.T) {
 	local := New(Deps{Config: config.NewDefault()})
 	if _, ok := local.engine.(*localStreamEngine); !ok || local.HasExternalPlayback() || local.fileWriter == nil {
 		t.Fatal("omitting the engine factory did not preserve the upstream local engine")
+	}
+	if local.IframeURL() != "" {
+		t.Fatal("local engine must not expose an iframe URL")
 	}
 }
 

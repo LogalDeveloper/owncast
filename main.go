@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"net/http"
 	"os"
@@ -124,6 +125,11 @@ func main() {
 
 		log.Println("Database has been restored.  Restart Owncast.")
 		log.Exit(0)
+	}
+
+	engineFactory, err := streamEngineFactory()
+	if err != nil {
+		log.Fatalln("invalid Cloudflare Stream configuration:", err)
 	}
 
 	cfg.EnableDebugFeatures = *enableDebugOptions
@@ -270,7 +276,7 @@ func main() {
 	apSvc.Start()
 
 	streamSvc := stream.New(stream.Deps{
-		EngineFactory:    streamEngineFactory(),
+		EngineFactory:    engineFactory,
 		Rtmp:             rtmpSvc,
 		Activitypub:      apSvc,
 		Webhooks:         webhooksSvc,
@@ -440,28 +446,21 @@ func main() {
 	}
 }
 
-// streamEngineFactory selects the Cloudflare Stream engine when both
-// CLOUDFLARE_STREAM_* variables are set. It returns nil when neither is set
-// so stream.New falls back to the upstream local RTMP engine. Setting only
-// one is treated as a misconfiguration.
-func streamEngineFactory() func(stream.StreamEvents) stream.StreamEngine {
+func streamEngineFactory() (func(stream.StreamEvents) stream.StreamEngine, error) {
 	inputID := os.Getenv("CLOUDFLARE_STREAM_LIVE_INPUT_ID")
 	customerCode := os.Getenv("CLOUDFLARE_STREAM_CUSTOMER_CODE")
-	if inputID == "" && customerCode == "" {
-		return nil
-	}
 	if inputID == "" || customerCode == "" {
-		log.Fatalln("Cloudflare Stream requires both CLOUDFLARE_STREAM_LIVE_INPUT_ID and CLOUDFLARE_STREAM_CUSTOMER_CODE to be set")
+		return nil, errors.New("Cloudflare Stream requires both CLOUDFLARE_STREAM_LIVE_INPUT_ID and CLOUDFLARE_STREAM_CUSTOMER_CODE to be set")
 	}
 	cloudflareConfig, err := cloudflarestream.NewConfig(inputID, customerCode)
 	if err != nil {
-		log.Fatalln("invalid Cloudflare Stream configuration:", err)
+		return nil, err
 	}
 	log.Infoln("Cloudflare Stream mode enabled; local RTMP ingest and transcoding are disabled.")
 	providerClient := &http.Client{Timeout: 4 * time.Second}
 	return func(events stream.StreamEvents) stream.StreamEngine {
 		return cloudflarestream.New(cloudflarestream.Deps{Config: cloudflareConfig, Client: providerClient, Events: events})
-	}
+	}, nil
 }
 
 func handleCommandLineFlags(cfg *config.Config, configRepository configrepository.ConfigRepository) {

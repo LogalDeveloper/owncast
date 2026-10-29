@@ -54,6 +54,7 @@ type webConfigResponse struct {
 	NSFW                       bool                         `json:"nsfw"`
 	Autoplay                   models.AutoplayMode          `json:"autoplay"`
 	Authentication             authenticationConfigResponse `json:"authentication"`
+	CloudflareStreamIframeURL  string                       `json:"x_cloudflareStreamIframeUrl,omitempty"`
 }
 
 type federationConfigResponse struct {
@@ -142,7 +143,13 @@ func (h *Handlers) getConfigResponse(r *http.Request) webConfigResponse {
 		IndieAuthEnabled: configRepository.GetServerURL() != "",
 	}
 
+	iframeURL := ""
+	if h.stream != nil {
+		iframeURL = h.stream.IframeURL()
+	}
+
 	return webConfigResponse{
+		CloudflareStreamIframeURL:  iframeURL,
 		Name:                       configRepository.GetServerName(),
 		Summary:                    serverSummary,
 		OfflineMessage:             offlineMessage,

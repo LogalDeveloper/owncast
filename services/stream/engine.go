@@ -25,6 +25,8 @@ type StreamEngine interface {
 type ExternalPlayback interface {
 	// PlaybackURL is where /hls/stream.m3u8 redirects viewers.
 	PlaybackURL() string
+	// IframeURL is the provider's player embed URL; clients add playback options.
+	IframeURL() string
 	// ViewerCount is the provider's authoritative concurrent viewer count.
 	ViewerCount() int
 	// ThumbnailURL is the provider image to proxy, or "" when none applies.

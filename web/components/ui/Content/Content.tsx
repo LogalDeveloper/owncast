@@ -266,8 +266,8 @@ export const Content: FC = () => {
         <Row>
           {online && configLoaded && (
             <OwncastPlayer
-              source="/hls/stream.m3u8"
-              online={online}
+              source={clientConfig.x_cloudflareStreamIframeUrl}
+              online={isStreamLive}
               title={streamTitle || name}
               autoplay={autoplay}
               className={styles.topSectionElement}

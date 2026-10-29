@@ -113,6 +113,10 @@ func (s *Service) PlaybackURL() string {
 	return s.endpoint(s.config.inputID, "manifest/video.m3u8")
 }
 
+func (s *Service) IframeURL() string {
+	return s.endpoint(s.config.inputID, "iframe")
+}
+
 // ViewerCount is the last successfully polled live viewer count.
 func (s *Service) ViewerCount() int {
 	s.mu.RLock()

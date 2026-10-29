@@ -79,8 +79,8 @@ export default function VideoEmbed() {
         `}
       </style>
       <OwncastPlayer
-        source="/hls/stream.m3u8"
-        online={online}
+        source={clientConfig.x_cloudflareStreamIframeUrl}
+        online={status.online}
         initiallyMuted={initiallyMuted}
         title={streamTitle || name}
         autoplay={autoplayOverride}

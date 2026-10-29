@@ -24,6 +24,10 @@ func (*externalTestEngine) PlaybackURL() string {
 	return "https://customer-code.cloudflarestream.com/0123456789abcdef0123456789abcdef/manifest/video.m3u8"
 }
 
+func (*externalTestEngine) IframeURL() string {
+	return "https://customer-code.cloudflarestream.com/0123456789abcdef0123456789abcdef/iframe"
+}
+
 func (e *externalTestEngine) ThumbnailURL() string {
 	e.mu.RLock()
 	defer e.mu.RUnlock()

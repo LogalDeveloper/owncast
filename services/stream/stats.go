@@ -93,7 +93,7 @@ func (s *Service) RemoveChatClient(clientID string) {
 func (s *Service) SetViewerActive(viewer *models.Viewer) {
 	s.statsMu.Lock()
 	defer s.statsMu.Unlock()
-	if s.stats == nil || !s.stats.StreamConnected {
+	if s.HasExternalPlayback() || s.stats == nil || !s.stats.StreamConnected {
 		return
 	}
 
@@ -116,10 +116,8 @@ func (s *Service) SetViewerActive(viewer *models.Viewer) {
 		copyViewer := *viewer
 		s.stats.Viewers[viewer.ClientID] = &copyViewer
 	}
-	if !s.HasExternalPlayback() {
-		s.stats.SessionMaxViewerCount = max(len(s.stats.Viewers), s.stats.SessionMaxViewerCount)
-		s.stats.OverallMaxViewerCount = max(s.stats.SessionMaxViewerCount, s.stats.OverallMaxViewerCount)
-	}
+	s.stats.SessionMaxViewerCount = max(len(s.stats.Viewers), s.stats.SessionMaxViewerCount)
+	s.stats.OverallMaxViewerCount = max(s.stats.SessionMaxViewerCount, s.stats.OverallMaxViewerCount)
 }
 
 // GetActiveViewers returns a snapshot of the currently-tracked viewers.

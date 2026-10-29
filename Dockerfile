@@ -23,7 +23,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -ldflags "-extldflag
 
 # Create the image by copying the result of the build into a new alpine image
 FROM alpine:3.24.0
-RUN apk update && apk add --no-cache ffmpeg ffmpeg-libs ca-certificates && update-ca-certificates
+RUN apk update && apk add --no-cache ca-certificates && update-ca-certificates
 
 RUN addgroup -g 101 -S owncast && adduser -u 101 -S owncast -G owncast
 
